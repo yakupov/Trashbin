@@ -75,10 +75,11 @@ public class ShortGame {
 	 */
 	@SuppressWarnings("resource")
 	public static void main(String[] args) throws IOException {
+		sumMap = new HashMap<String, Game>();
 		InputStream fis = new FileInputStream("short.in");
 		OutputStream fos = new FileOutputStream("short.out");
-
 		Scanner scanner = new Scanner(fis);
+		
 		String inStr = scanner.nextLine();
 		Game start = null;
 		try {
@@ -87,10 +88,7 @@ public class ShortGame {
 			throw new RuntimeException("Wrong symbol in input string (too short)", e);
 		}
 		
-		sumMap = new HashMap<String, Game>();
-		
 		Game finish = simplify(start);
-		
 		fos.write(finish.toString().getBytes());
 		fos.write("\n".getBytes());
 		System.exit(0);
@@ -105,9 +103,24 @@ public class ShortGame {
 		boolean someChanged = true;
 		while (someChanged) {
 			someChanged = false;
-			
-			Game gmax = g.l.size() > 0 ? g.l.get(0) : null;
-			simplify(gmax);
+			//Game gmax = g.l.size() > 0 ? g.l.get(0) : null;
+			//simplify(gmax);
+			for (int i = 0; i < g.l.size(); ++i) {
+				for (int j = 0; j < g.l.size(); ++j) {
+					if (j == i) continue;
+					simplify(g.l.get(i));
+					simplify(g.l.get(j));
+					Comp cres = compareGames(g.l.get(i), g.l.get(j));
+					if (cres.gt) {
+						g.l.remove(j);
+						if (i > j)
+							--i;
+						--j;
+						someChanged = true;
+					}
+				}	
+			}
+			/*
 			for (int i = 1; i < g.l.size(); ++i) {
 				simplify(g.l.get(i));
 				Comp cres = compareGames(g.l.get(i), gmax);
@@ -118,7 +131,7 @@ public class ShortGame {
 					someChanged = true;
 				}
 			}
-			
+			*/
 			for (int i = 0; i < g.l.size(); ++i) {
 				Game revOpt = isReversible(g.l.get(i), g, false);
 				if (revOpt != null) {
@@ -126,15 +139,16 @@ public class ShortGame {
 					g.l.addAll(revOpt.l);
 					--i;
 					someChanged = true;
-
+					break;
 				}
 			}
-		}
+		//}
 		
-		someChanged = true;
-		while (someChanged) {
-			someChanged = false;
-
+		//someChanged = true;
+		//while (someChanged) {
+		//	someChanged = false;
+			
+			/*
 			Game gmin = g.r.size() > 0 ? g.r.get(0) : null;;
 			simplify(gmin);
 			for (int i = 1; i < g.r.size(); ++i) {
@@ -147,7 +161,23 @@ public class ShortGame {
 					someChanged = true;
 				}
 			}
+			*/
 			
+			for (int i = 0; i < g.r.size(); ++i) {
+				for (int j = 0; j < g.r.size(); ++j) {
+					if (j == i) continue;
+					simplify(g.r.get(i));
+					simplify(g.r.get(j));
+					Comp cres = compareGames(g.r.get(i), g.r.get(j));
+					if (cres.lt) {
+						g.r.remove(j);
+						if (i > j)
+							--i;
+						--j;
+						someChanged = true;
+					}
+				}	
+			}
 			for (int i = 0; i < g.r.size(); ++i) {
 				Game revOpt = isReversible(g.r.get(i), g, true);
 				if (revOpt != null) {
@@ -158,7 +188,6 @@ public class ShortGame {
 					break;
 				}
 			}
-
 		}
 		
 		g.simplified = true;
@@ -169,12 +198,11 @@ public class ShortGame {
 	public static Game isReversible(Game opt, Game par, boolean isRight) {
 		//System.err.println ("isRev:: " + opt + " " + isRight);
 		if (opt == null)
-			return null;
+			throw new RuntimeException(); //TODO: important for debug
 		
 		if (!isRight) { //L opt
 			for (Game cg : opt.r) {
 				Comp cres = compareGames(cg, par);
-				//System.out.println("        " + cg.toString() + "   " + cres);
 				if (cres.lt) {
 					return cg;
 				}
