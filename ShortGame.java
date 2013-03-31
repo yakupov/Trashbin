@@ -76,61 +76,70 @@ public class ShortGame {
 
 	
 	private static Game simplify(Game g) {
-		for (int i = 0; i < g.l.size(); ++i) {
-			//g.l.set(i, simplify(g.l.get(i)));
-			simplify(g.l.get(i));
-		}
-		for (int i = 0; i < g.r.size(); ++i) {
-			//g.l.set(i, simplify(g.l.get(i)));
-			simplify(g.r.get(i));
-		}
+		if (g == null)
+			return g; 
 	
-		Game gmax = g.l.size() > 0 ? g.l.get(0) : null; 
+		Game gmax = g.l.size() > 0 ? g.l.get(0) : null;
+		simplify(gmax);
+		Game ng = isReversible(gmax, g, false);
+		if (isReversible) {
+			if (ng != null) {
+				g.l.set(0, ng);
+			} else {
+				g.l.remove(gmax);
+			}
+			gmax = g.l.size() > 0 ? g.l.get(0) : null;
+		}
 		for (int i = 1; i < g.l.size(); ++i) {
+			simplify(g.l.get(i));
 			int cres = compareGames(g.l.get(i), gmax);
-			if (cres < 42) {
-				if (cres >= 0) {
-					gmax = g.l.get(i);
-				}
+			if (cres >= 0 && cres < 42) {
+				g.l.remove(gmax);
+				--i;
+				gmax = g.l.get(i);
 			}
-		}
-		if (gmax != null) {
-			g.l.clear();
-			g.l.add(gmax);
-		}
-		
-		
-		Game gmin = g.r.size() > 0 ? g.r.get(0) : null;; 
-		for (int i = 1; i < g.r.size(); ++i) {
-			int cres = compareGames(g.r.get(i), gmin);
-			if (cres < 42) {
-				if (cres <= 0) {
-					gmin = g.r.get(i);
-				}
-			}
-		}
-		if (gmin != null) {
-			g.r.clear();
-			g.r.add(gmin);
-		}
-		
-		for (int i = 0; i < g.l.size(); ++i) {
-			Game ng = isReversible(g.l.get(i), g, false);
+			
+			ng = isReversible(g.l.get(i), g, false);
 			if (isReversible) {
-				if (ng != null)
+				if (ng != null) {
 					g.l.set(i, ng);
-				else
+				} else {
 					g.l.remove(i);
+				}
+				gmax = g.l.size() > 0 ? g.l.get(0) : null;
+				i = 0;
 			}
 		}
 		
-		for (int i = 0; i < g.r.size(); ++i) {
-			Game ng = isReversible(g.r.get(i), g, true);
+		Game gmin = g.r.size() > 0 ? g.r.get(0) : null;;
+		simplify(gmin);
+		ng = isReversible(gmin, g, true);
+		if (isReversible) {
+			if (ng != null) {
+				g.r.set(0, ng);
+			} else {
+				g.r.remove(gmin);
+			}
+			gmin = g.r.size() > 0 ? g.r.get(0) : null;
+		}
+		for (int i = 1; i < g.r.size(); ++i) {
+			simplify(g.r.get(i));
+			int cres = compareGames(g.r.get(i), gmin);
+			if (cres <= 0) {
+				g.r.remove(gmin);
+				--i;
+				gmin = g.r.get(i);
+			}
+			
+			ng = isReversible(g.r.get(i), g, true);
 			if (isReversible) {
-				if (ng != null)
+				if (ng != null) {
 					g.r.set(i, ng);
-				else
+				} else {
 					g.r.remove(i);
+				}
+				gmin = g.r.size() > 0 ? g.r.get(0) : null;;
+				i = 0;
 			}
 		}
 		
@@ -140,8 +149,11 @@ public class ShortGame {
 	//null - not reversible
 	static boolean isReversible;
 	public static Game isReversible(Game opt, Game par, boolean isRight) {
-		System.err.println ("isRev:: " + opt.toString() + " " + isRight);
 		isReversible = false;
+		if (opt == null)
+			return null;
+		System.err.println ("isRev:: " + opt.toString() + " " + isRight);
+		
 		if (!isRight) { //L opt
 			for (Game cg : opt.r) {
 				int cres = compareGames(cg, par);
@@ -194,17 +206,8 @@ public class ShortGame {
 	
 	
 	public static int compareGames(Game g1, Game g2) {
-		//int r1 = evalGame(g1);
-		//int r2 = evalGame(g2);
-		
 		Game delta = sum(g1, g2.inverse());
 		return evalGame(delta);
-		
-		/*
-		 * TODO:
-		 * 1) res = subtract g2 from g1
-		 * 2) return eval res
-		 */
 	}
 	
 	
