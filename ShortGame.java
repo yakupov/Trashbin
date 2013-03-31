@@ -4,20 +4,38 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Scanner;
 
 
 public class ShortGame {
-	//public static enum 
+	public static class Comp {
+		public Comp(boolean gt, boolean lt) {
+			super();
+			this.gt = gt;
+			this.lt = lt;
+		}
+		public boolean gt;
+		public boolean lt;
+	}
+	
+	public static HashMap<String, Game> sumMap;
 	
 	public static class Game {
-		public ArrayList<Game> l, r;
+		public List<Game> l, r;
 		public boolean simplified;
+		public boolean gt;
+		public boolean lt;
+		public boolean evaluated;
 		
 		public Game() {
 			l = new ArrayList<Game>();
 			r = new ArrayList<Game>();
 			simplified = false;
+			gt = false;
+			lt = false;
+			evaluated = false;
 		}
 		
 		public Game inverse() {
@@ -69,6 +87,8 @@ public class ShortGame {
 			throw new RuntimeException("Wrong symbol in input string (too short)", e);
 		}
 		
+		sumMap = new HashMap<String, Game>();
+		
 		Game finish = simplify(start);
 		
 		fos.write(finish.toString().getBytes());
@@ -78,6 +98,7 @@ public class ShortGame {
 
 	
 	private static Game simplify(Game g) {
+		////System.out.println("S_" + g);	
 		if (g == null || g.simplified)
 			return g; 
 	
@@ -86,10 +107,11 @@ public class ShortGame {
 			someChanged = false;
 			
 			Game gmax = g.l.size() > 0 ? g.l.get(0) : null;
+			simplify(gmax);
 			for (int i = 1; i < g.l.size(); ++i) {
 				simplify(g.l.get(i));
-				int cres = compareGames(g.l.get(i), gmax);
-				if (cres >= 0 && cres < 42) {
+				Comp cres = compareGames(g.l.get(i), gmax);
+				if (cres.gt) {
 					g.l.remove(gmax);
 					--i;
 					gmax = g.l.get(i);
@@ -98,13 +120,11 @@ public class ShortGame {
 			}
 			
 			for (int i = 0; i < g.l.size(); ++i) {
-				Game ng = isReversible(g.l.get(i), g, false);
-				if (isReversible) {
-					if (ng != null) {
-						g.l.set(i, ng);
-					} else {
-						g.l.remove(i);
-					}
+				Game revOpt = isReversible(g.l.get(i), g, false);
+				if (revOpt != null) {
+					g.l.remove(i);
+					g.l.addAll(revOpt.l);
+					--i;
 					someChanged = true;
 				}
 			}
@@ -113,12 +133,13 @@ public class ShortGame {
 		someChanged = true;
 		while (someChanged) {
 			someChanged = false;
+
 			Game gmin = g.r.size() > 0 ? g.r.get(0) : null;;
 			simplify(gmin);
 			for (int i = 1; i < g.r.size(); ++i) {
 				simplify(g.r.get(i));
-				int cres = compareGames(g.r.get(i), gmin);
-				if (cres <= 0) {
+				Comp cres = compareGames(g.r.get(i), gmin);
+				if (cres.lt) {
 					g.r.remove(gmin);
 					--i;
 					gmin = g.r.get(i);
@@ -127,13 +148,11 @@ public class ShortGame {
 			}
 			
 			for (int i = 0; i < g.r.size(); ++i) {
-				Game ng = isReversible(g.r.get(i), g, true);
-				if (isReversible) {
-					if (ng != null) {
-						g.r.set(i, ng);
-					} else {
-						g.r.remove(i);
-					}
+				Game revOpt = isReversible(g.r.get(i), g, true);
+				if (revOpt != null) {
+					g.r.remove(i);
+					g.r.addAll(revOpt.r);
+					--i;
 					someChanged = true;
 				}
 			}
@@ -145,35 +164,28 @@ public class ShortGame {
 	}
 	
 	//null - not reversible
-	static boolean isReversible;
 	public static Game isReversible(Game opt, Game par, boolean isRight) {
-		isReversible = false;
+		//System.err.println ("isRev:: " + opt + " " + isRight);
 		if (opt == null)
 			return null;
-		System.err.println ("isRev:: " + opt.toString() + " " + isRight);
 		
 		if (!isRight) { //L opt
 			for (Game cg : opt.r) {
-				int cres = compareGames(cg, par);
-				System.out.println("        " + cg.toString() + "   " + cres);
-				if (cres <= 0) {
-					isReversible = true;
-					if (cg.l.size() > 0)
-						return opt.l.get(0);
-					return null;
+				Comp cres = compareGames(cg, par);
+				//System.out.println("        " + cg.toString() + "   " + cres);
+				if (cres.lt) {
+					return cg;
 				}
 			} 
 		} else { //R opt
 			for (Game cg : opt.l) {
-				int cres = compareGames(par, cg);
-				if (cres <= 0) {
-					isReversible = true;
-					if (cg.r.size() > 0)
-						return opt.r.get(0);
-					return null;
+				Comp cres = compareGames(cg, par);
+				if (cres.gt) {
+					return cg;
 				}
 			}
 		}
+		
 		return null;
 	}
 
@@ -184,6 +196,10 @@ public class ShortGame {
 			return g2;
 		if (g2.l.size() == 0 && g2.r.size() == 0)
 			return g1;
+		
+		String hashStr = g1.toString() + g2.toString();
+		if (sumMap.containsKey(hashStr))
+			return sumMap.get(hashStr);
 		
 		Game res = new Game();
 		for (Game cg : g1.l) {
@@ -199,24 +215,55 @@ public class ShortGame {
 			res.r.add(sum(g2, cg));
 		}
 		
+		sumMap.put(hashStr, res);
 		return res;
 	}
 	
 	
-	public static int compareGames(Game g1, Game g2) {
+	public static Comp compareGames(Game g1, Game g2) {
+		//System.out.println("_Comp_" + g1 + "_" + g2);
+		evalGame(g1);
+		evalGame(g2);
+		if (g1.gt && g2.lt) {
+			if (g1.lt && g2.gt) {
+				return new Comp(true, true); 
+			}
+			return new Comp(true, false); 
+		}
+		
+		if (g1.lt && g2.gt) {
+			return new Comp(false, true);
+		}
+		
 		Game delta = sum(g1, g2.inverse());
-		return evalGame(delta);
+		//System.out.println("_Comp_" + delta);
+		evalGame(delta);
+		if (delta.lt) {
+			if (delta.gt) {
+				return new Comp(true, true); 
+			}
+			return new Comp(false, true);
+		}
+		
+		if (delta.gt) {
+			new Comp(true, false);
+		}
+		
+		return new Comp(false, false);
 	}
 	
 	
-	/**
-	 * 42 == * 
-	 * @param g
-	 * @return
-	 */
-	public static int evalGame(Game g) {
-		if (g.l == null && g.r == null)
-			return 0;
+	public static void evalGame(Game g) {
+		if (g.evaluated)
+			return;
+		else
+			g.evaluated = true;
+		
+		if (g.l == null && g.r == null) {
+			g.gt = true;
+			g.lt = true;
+			return;
+		}
 		
 		boolean lContGt = false;
 		boolean lContLt = false;
@@ -224,31 +271,41 @@ public class ShortGame {
 		boolean rContLt = false;
 		
 		for (Game cg : g.l) {
-			int currRes = evalGame(cg);
-			if (currRes >= 0 &&  currRes != 42)
+			evalGame(cg);
+			if (cg.gt)
 				lContGt = true;
-			if (currRes <= 0 &&  currRes != 42)
+			if (cg.lt)
 				lContLt = true;
 		}
 		
 		for (Game cg : g.r) {
-			int currRes = evalGame(cg);
-			if (currRes >= 0 &&  currRes != 42)
+			evalGame(cg);
+			if (cg.gt)
 				rContGt = true;
-			if (currRes <= 0 &&  currRes != 42)
+			if (cg.lt)
 				rContLt = true;
 		}
 		
-		if (!rContLt && !lContGt)
-			return 0;
+		if (!rContLt && !lContGt) {
+			g.gt = true;
+			g.lt = true;
+			return;
+		}
 		
-		if (!rContLt && lContGt)
-			return 1;
-		
-		if (rContLt && !lContGt)
-			return -1;
-		
-		return 42;
+		if (!rContLt && lContGt) {
+			g.gt = true;
+			g.lt = false;
+			return;
+		}
+			
+		if (rContLt && !lContGt) {
+			g.gt = false;
+			g.lt = true;
+			return;
+		}
+			
+		g.gt = false;
+		g.lt = false;
 	}
 	
 
