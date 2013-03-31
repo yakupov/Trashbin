@@ -12,10 +12,12 @@ public class ShortGame {
 	
 	public static class Game {
 		public ArrayList<Game> l, r;
+		public boolean simplified;
 		
 		public Game() {
 			l = new ArrayList<Game>();
 			r = new ArrayList<Game>();
+			simplified = false;
 		}
 		
 		public Game inverse() {
@@ -76,73 +78,69 @@ public class ShortGame {
 
 	
 	private static Game simplify(Game g) {
-		if (g == null)
+		if (g == null || g.simplified)
 			return g; 
 	
-		Game gmax = g.l.size() > 0 ? g.l.get(0) : null;
-		simplify(gmax);
-		Game ng = isReversible(gmax, g, false);
-		if (isReversible) {
-			if (ng != null) {
-				g.l.set(0, ng);
-			} else {
-				g.l.remove(gmax);
-			}
-			gmax = g.l.size() > 0 ? g.l.get(0) : null;
-		}
-		for (int i = 1; i < g.l.size(); ++i) {
-			simplify(g.l.get(i));
-			int cres = compareGames(g.l.get(i), gmax);
-			if (cres >= 0 && cres < 42) {
-				g.l.remove(gmax);
-				--i;
-				gmax = g.l.get(i);
+		boolean someChanged = true;
+		while (someChanged) {
+			someChanged = false;
+			
+			Game gmax = g.l.size() > 0 ? g.l.get(0) : null;
+			for (int i = 1; i < g.l.size(); ++i) {
+				simplify(g.l.get(i));
+				int cres = compareGames(g.l.get(i), gmax);
+				if (cres >= 0 && cres < 42) {
+					g.l.remove(gmax);
+					--i;
+					gmax = g.l.get(i);
+					someChanged = true;
+				}
 			}
 			
-			ng = isReversible(g.l.get(i), g, false);
-			if (isReversible) {
-				if (ng != null) {
-					g.l.set(i, ng);
-				} else {
-					g.l.remove(i);
+			for (int i = 0; i < g.l.size(); ++i) {
+				Game ng = isReversible(g.l.get(i), g, false);
+				if (isReversible) {
+					if (ng != null) {
+						g.l.set(i, ng);
+					} else {
+						g.l.remove(i);
+					}
+					someChanged = true;
 				}
-				gmax = g.l.size() > 0 ? g.l.get(0) : null;
-				i = 0;
 			}
 		}
 		
-		Game gmin = g.r.size() > 0 ? g.r.get(0) : null;;
-		simplify(gmin);
-		ng = isReversible(gmin, g, true);
-		if (isReversible) {
-			if (ng != null) {
-				g.r.set(0, ng);
-			} else {
-				g.r.remove(gmin);
-			}
-			gmin = g.r.size() > 0 ? g.r.get(0) : null;
-		}
-		for (int i = 1; i < g.r.size(); ++i) {
-			simplify(g.r.get(i));
-			int cres = compareGames(g.r.get(i), gmin);
-			if (cres <= 0) {
-				g.r.remove(gmin);
-				--i;
-				gmin = g.r.get(i);
+		someChanged = true;
+		while (someChanged) {
+			someChanged = false;
+			Game gmin = g.r.size() > 0 ? g.r.get(0) : null;;
+			simplify(gmin);
+			for (int i = 1; i < g.r.size(); ++i) {
+				simplify(g.r.get(i));
+				int cres = compareGames(g.r.get(i), gmin);
+				if (cres <= 0) {
+					g.r.remove(gmin);
+					--i;
+					gmin = g.r.get(i);
+					someChanged = true;
+				}
 			}
 			
-			ng = isReversible(g.r.get(i), g, true);
-			if (isReversible) {
-				if (ng != null) {
-					g.r.set(i, ng);
-				} else {
-					g.r.remove(i);
+			for (int i = 0; i < g.r.size(); ++i) {
+				Game ng = isReversible(g.r.get(i), g, true);
+				if (isReversible) {
+					if (ng != null) {
+						g.r.set(i, ng);
+					} else {
+						g.r.remove(i);
+					}
+					someChanged = true;
 				}
-				gmin = g.r.size() > 0 ? g.r.get(0) : null;;
-				i = 0;
 			}
+
 		}
 		
+		g.simplified = true;
 		return g;
 	}
 	
