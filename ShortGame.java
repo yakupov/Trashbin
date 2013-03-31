@@ -126,6 +126,7 @@ public class ShortGame {
 					g.l.addAll(revOpt.l);
 					--i;
 					someChanged = true;
+
 				}
 			}
 		}
@@ -154,6 +155,7 @@ public class ShortGame {
 					g.r.addAll(revOpt.r);
 					--i;
 					someChanged = true;
+					break;
 				}
 			}
 
@@ -179,24 +181,19 @@ public class ShortGame {
 			} 
 		} else { //R opt
 			for (Game cg : opt.l) {
-				Comp cres = compareGames(cg, par);
-				if (cres.gt) {
+				Comp cres = compareGames(par, cg);
+				if (cres.lt) {
 					return cg;
 				}
 			}
 		}
-		
 		return null;
 	}
 
 	public static Game sum(Game g1, Game g2) {
 		if (g1 == null | g2 == null) 
-			return null;
-		if (g1.l.size() == 0 && g1.r.size() == 0)
-			return g2;
-		if (g2.l.size() == 0 && g2.r.size() == 0)
-			return g1;
-		
+			throw new RuntimeException(); //TODO: important for debug
+
 		String hashStr = g1.toString() + g2.toString();
 		if (sumMap.containsKey(hashStr))
 			return sumMap.get(hashStr);
@@ -212,7 +209,7 @@ public class ShortGame {
 			res.r.add(sum(cg, g2));
 		}
 		for (Game cg : g2.r) {
-			res.r.add(sum(g2, cg));
+			res.r.add(sum(g1, cg));
 		}
 		
 		sumMap.put(hashStr, res);
@@ -222,6 +219,7 @@ public class ShortGame {
 	
 	public static Comp compareGames(Game g1, Game g2) {
 		//System.out.println("_Comp_" + g1 + "_" + g2);
+		/*
 		evalGame(g1);
 		evalGame(g2);
 		if (g1.gt && g2.lt) {
@@ -234,22 +232,11 @@ public class ShortGame {
 		if (g1.lt && g2.gt) {
 			return new Comp(false, true);
 		}
-		
+		*/
 		Game delta = sum(g1, g2.inverse());
 		//System.out.println("_Comp_" + delta);
-		evalGame(delta);
-		if (delta.lt) {
-			if (delta.gt) {
-				return new Comp(true, true); 
-			}
-			return new Comp(false, true);
-		}
-		
-		if (delta.gt) {
-			new Comp(true, false);
-		}
-		
-		return new Comp(false, false);
+		evalGame(delta);		
+		return new Comp(delta.gt, delta.lt);
 	}
 	
 	
@@ -259,9 +246,19 @@ public class ShortGame {
 		else
 			g.evaluated = true;
 		
-		if (g.l == null && g.r == null) {
+		if (g.l.size() == 0) {
+			if (g.r.size() == 0) {
+				g.gt = true;
+				g.lt = true;
+			} else {
+				g.gt = false;
+				g.lt = true;
+			}
+			return;
+		}
+		if (g.r.size() == 0) {
 			g.gt = true;
-			g.lt = true;
+			g.lt = false;
 			return;
 		}
 		
