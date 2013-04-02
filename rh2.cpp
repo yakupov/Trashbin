@@ -67,29 +67,41 @@ Num maskResults[1200000];
 int normMasks[1200000];
 int usageMasks[1200000];
 
-
-int normalizeDfs(int mask, int cVertex, int edgUsedMask) {
-    if (usageMasks[mask] >= 0)
-        return usageMasks[mask];
-
-    for (int i = 0; i < graph[cVertex].size(); ++i) {
-        int dest = graph[cVertex][i];
-        for (int j = 0; j < edgIndex[cVertex][dest].size(); ++j) {
-            int currIndex = edgIndex[cVertex][dest][j];
-            int cbit = (1 << currIndex);
-
-            if (!(cbit & mask)) //no edge
-                    continue;
-
-            int nUMask = cbit | edgUsedMask;
-            if (nUMask == edgUsedMask) //used
-                    continue;
-
-            edgUsedMask = normalizeDfs(mask, dest, nUMask);
-        }
+struct dfs {
+    dfs(int mask) {
+        init(mask);
     }
-    return edgUsedMask;
-}
+
+    void init(int mask) {
+        edgUsedMask = 0;
+        this->mask = mask;
+    }
+
+    int edgUsedMask;
+    int mask;
+    int normalizeDfs(int cVertex) {
+        for (int i = 0; i < graph[cVertex].size(); ++i) {
+            int dest = graph[cVertex][i];
+            for (int j = 0; j < edgIndex[cVertex][dest].size(); ++j) {
+                int currIndex = edgIndex[cVertex][dest][j];
+                int cbit = (1 << currIndex);
+
+                if (!(cbit & mask) || cbit & edgUsedMask) //no edge or used
+                        continue;
+
+                edgUsedMask |= cbit;
+                normalizeDfs(dest);
+            }
+        }
+        return edgUsedMask;
+    }
+
+    int exec() {
+        if (usageMasks[mask] >= 0)
+            return usageMasks[mask];
+        return normalizeDfs(1);
+    }
+};
 
 Num eval(int mask) {
     if (mask == 0) {
@@ -109,7 +121,7 @@ Num eval(int mask) {
                     if (!maskResults[nmask].isnull) {
                             cres = maskResults[nmask];
                     } else {
-                        throw "null";
+                        //throw "null";
                             cres = eval(nmask);
                             maskResults[nmask] = cres;
                     }
@@ -186,10 +198,10 @@ int main(int argc, char **argv) {
             fis >> col;
             bool color = (col == 1); //true == red
             graph[from].push_back(to);
-            //if (from != to)
+            if (from != to)
                 graph[to].push_back(from);
             edgIndex[from][to].push_back(i);
-            //if (from != to)
+            if (from != to)
                 edgIndex[to][from].push_back(i);
             colors[i] = color;
     }
@@ -199,20 +211,24 @@ int main(int argc, char **argv) {
         usageMasks[i] = -1;
     }
 
+    dfs d(0);
     for (int i = 0; i < (1 << edgCount); ++i) {
-        usageMasks[i] = normalizeDfs(i, 1, 0);
+        d.init(i);
+        usageMasks[i] = d.exec();
         normMasks[i] = i & usageMasks[i];
 
         int cmask = normMasks[i];
         if (maskResults[cmask].isnull) {
             maskResults[cmask] = eval(cmask);
         }
+
     }
 
     int initMask = (1 << edgCount) - 1;
-    assert (normMasks[initMask] == initMask);
+    //assert (normMasks[initMask] == initMask);
 
-    Num res = maskResults[initMask]; //eval(initMask);
+    Num res = maskResults[initMask];
+    //Num res = eval(initMask);
     res.shorten();
     fos << res.num << ' ' << res.den << "\n";
 
