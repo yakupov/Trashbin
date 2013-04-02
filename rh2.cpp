@@ -2,6 +2,7 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <cassert>
 
 struct Num {
     long long num;
@@ -44,14 +45,14 @@ struct Num {
             Num res(num * arg.den, den * arg.den);
             res.num = res.num + arg.num * den;
 
-            //res.shorten();
+            res.shorten();
             return res;
     }
 
     void shorten() {
             while (num != 0 && num % 2 == 0L && den % 2 == 0L) {
                     if (den == 0L)
-                        throw NULL;
+                        throw "";
                     num /= 2;
                     den /= 2;
             }
@@ -61,19 +62,20 @@ struct Num {
 std::vector<int> graph[30];
 int edgCount;
 bool colors[30];
-int edgIndex[30][30];
+std::vector<int> edgIndex[30][30];
 Num maskResults[1200000];
-int normUseMasks[1200000];
+int normMasks[1200000];
+int usageMasks[1200000];
 
 
 int normalizeDfs(int mask, int cVertex, int edgUsedMask) {
-    if (normUseMasks[mask] >= 0)
-        return normUseMasks[mask];
-
+    if (usageMasks[mask] >= 0)
+        return usageMasks[mask];
 
     for (int i = 0; i < graph[cVertex].size(); ++i) {
         int dest = graph[cVertex][i];
-            int currIndex = edgIndex[cVertex][dest];
+        for (int j = 0; j < edgIndex[cVertex][dest].size(); ++j) {
+            int currIndex = edgIndex[cVertex][dest][j];
             int cbit = (1 << currIndex);
 
             if (!(cbit & mask)) //no edge
@@ -84,13 +86,16 @@ int normalizeDfs(int mask, int cVertex, int edgUsedMask) {
                     continue;
 
             edgUsedMask = normalizeDfs(mask, dest, nUMask);
+        }
     }
     return edgUsedMask;
 }
 
 Num eval(int mask) {
-    if (mask == 0)
-            return Num::ZERO();
+    if (mask == 0) {
+        maskResults[0] = Num::ZERO();
+        return maskResults[0];
+    }
 
     Num minR;
     Num maxB;
@@ -98,15 +103,13 @@ Num eval(int mask) {
     for (int i = 0; i < edgCount; ++i) {
             int cbit = (1 << i);
             if (cbit & mask) {
-                    int nmask = cbit ^ mask;
-                    int useMask =  normUseMasks[nmask];//normalizeDfs(nmask, 1, 0);
-
-                    nmask &= useMask;
+                    int nmask = normMasks[cbit ^ mask];
 
                     Num cres;
                     if (!maskResults[nmask].isnull) {
                             cres = maskResults[nmask];
                     } else {
+                        throw "null";
                             cres = eval(nmask);
                             maskResults[nmask] = cres;
                     }
@@ -170,9 +173,9 @@ int main(int argc, char **argv) {
     fis >> vertCount;
     fis >> edgCount;
 
-    for (int i = 0; i <= vertCount; ++i) {
-            graph[i] = std::vector<int>();
-    }
+    //for (int i = 0; i <= vertCount; ++i) {
+    //        graph[i] = std::vector<int>();
+    //}
 
     for (int i = 0; i < edgCount; ++i) {
             int from = 0;
@@ -183,26 +186,33 @@ int main(int argc, char **argv) {
             fis >> col;
             bool color = (col == 1); //true == red
             graph[from].push_back(to);
-            graph[to].push_back(from);
-            edgIndex[from][to] = i;
-            edgIndex[to][from] = i;
+            //if (from != to)
+                graph[to].push_back(from);
+            edgIndex[from][to].push_back(i);
+            //if (from != to)
+                edgIndex[to][from].push_back(i);
             colors[i] = color;
     }
 
     for (int i = 0; i < (1 << edgCount); ++i) {
-        normUseMasks[i] = -1;
+        normMasks[i] = -1;
+        usageMasks[i] = -1;
     }
 
     for (int i = 0; i < (1 << edgCount); ++i) {
-        normUseMasks[i] = normalizeDfs(i, 1, 0);
+        usageMasks[i] = normalizeDfs(i, 1, 0);
+        normMasks[i] = i & usageMasks[i];
+
+        int cmask = normMasks[i];
+        if (maskResults[cmask].isnull) {
+            maskResults[cmask] = eval(cmask);
+        }
     }
 
     int initMask = (1 << edgCount) - 1;
-    for (int i = 0; i < edgCount; ++i) {
-            initMask |= (1 << i);
-    }
+    assert (normMasks[initMask] == initMask);
 
-    Num res = eval(initMask);
+    Num res = maskResults[initMask]; //eval(initMask);
     res.shorten();
     fos << res.num << ' ' << res.den << "\n";
 
