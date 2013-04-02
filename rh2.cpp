@@ -4,8 +4,8 @@
 #include <string>
 
 struct Num {
-    long num;
-    long den;
+    long long num;
+    long long den;
     bool isnull;
 
     static Num ZERO() {
@@ -44,7 +44,7 @@ struct Num {
             Num res(num * arg.den, den * arg.den);
             res.num = res.num + arg.num * den;
 
-            res.shorten();
+            //res.shorten();
             return res;
     }
 
@@ -63,17 +63,20 @@ int edgCount;
 bool colors[30];
 int edgIndex[30][30];
 Num maskResults[1200000];
+int normUseMasks[1200000];
+
 
 int normalizeDfs(int mask, int cVertex, int edgUsedMask) {
-    if (edgUsedMask == mask)
-            return edgUsedMask;
+    if (normUseMasks[mask] >= 0)
+        return normUseMasks[mask];
+
 
     for (int i = 0; i < graph[cVertex].size(); ++i) {
         int dest = graph[cVertex][i];
             int currIndex = edgIndex[cVertex][dest];
             int cbit = (1 << currIndex);
 
-            if ((cbit | mask) != mask) //no edge
+            if (!(cbit & mask)) //no edge
                     continue;
 
             int nUMask = cbit | edgUsedMask;
@@ -94,9 +97,10 @@ Num eval(int mask) {
 
     for (int i = 0; i < edgCount; ++i) {
             int cbit = (1 << i);
-            if ((cbit | mask) == mask) {
+            if (cbit & mask) {
                     int nmask = cbit ^ mask;
-                    int useMask = normalizeDfs(nmask, 1, 0);
+                    int useMask =  normUseMasks[nmask];//normalizeDfs(nmask, 1, 0);
+
                     nmask &= useMask;
 
                     Num cres;
@@ -179,11 +183,21 @@ int main(int argc, char **argv) {
             fis >> col;
             bool color = (col == 1); //true == red
             graph[from].push_back(to);
+            graph[to].push_back(from);
             edgIndex[from][to] = i;
+            edgIndex[to][from] = i;
             colors[i] = color;
     }
 
-    int initMask = 0;
+    for (int i = 0; i < (1 << edgCount); ++i) {
+        normUseMasks[i] = -1;
+    }
+
+    for (int i = 0; i < (1 << edgCount); ++i) {
+        normUseMasks[i] = normalizeDfs(i, 1, 0);
+    }
+
+    int initMask = (1 << edgCount) - 1;
     for (int i = 0; i < edgCount; ++i) {
             initMask |= (1 << i);
     }
