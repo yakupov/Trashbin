@@ -3,26 +3,29 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Scanner;
 
 public class RBHack2 {
+static final BigInteger two = BigInteger.ONE.add(BigInteger.ONE);
+	
 	static class Num {
-		long num;
-		long den;
+		BigInteger num;
+		BigInteger den;
 		
 		public static final Num ZERO() {
-			return new Num(0L, 1L);
+			return new Num(BigInteger.ZERO, BigInteger.ONE);
 		}
 		public static final Num ONE() {
-			return new Num(1L, 1L);
+			return new Num(BigInteger.ONE, BigInteger.ONE);
 		}
 		public static final Num NEG_ONE() {
-			return new Num(-1L, 1L);
+			return new Num(BigInteger.ONE.negate(), BigInteger.ONE);
 		}
 		
-		public Num(long num, long den) {
+		public Num(BigInteger num, BigInteger den) {
 			super();
 			this.num = num;
 			this.den = den;
@@ -36,29 +39,25 @@ public class RBHack2 {
 			//a/b ? c/d      |*bd
 			//ad ? bc
 			//System.out.println(this + " ? " + arg);
-			long l = num * arg.den;
-			long r = den * arg.num;
-			if (l == r)
-				return 0;
-			if (l > r)
-				return 1;
-			return -1;
+			return num.multiply(arg.den).compareTo(den.multiply(arg.num));
 		}
 		
 		public Num add(Num arg) {
-			Num res = new Num(num * arg.den, den * arg.den);
-			res.num = res.num + arg.num * den;
+			Num res = new Num(num.multiply(arg.den), den.multiply(arg.den));
+			res.num = res.num.add(arg.num.multiply(den));
 			
-			res.shorten();
+			//res.shorten();
 			return res;
 		}
 		
 		public void shorten() {
-			while (num != 0 && num % 2 == 0L && den % 2 == 0L) {
-				if (den == 0L)
+			while (!(num.compareTo(BigInteger.ZERO) == 0) &&
+					num.divideAndRemainder(two)[1].equals(BigInteger.ZERO) && 
+					den.divideAndRemainder(two)[1].equals(BigInteger.ZERO)) {
+				if (den.compareTo(BigInteger.ZERO) == 0)
 					throw new RuntimeException();
-				num /= 2;
-				den /= 2;
+				num = num.divide(two);
+				den = den.divide(two);
 			}
 		}
 	}
@@ -68,10 +67,10 @@ public class RBHack2 {
 	static boolean[] colors;
 	static int[][] edgIndex;
 	static Num[] maskResults;
-	static int[] normUseMasks;
+	static int[] normMasks;
 	
 	@SuppressWarnings({ "unchecked", "resource" })
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws Exception {
 		InputStream fis = new FileInputStream("bluered.in");
 		OutputStream fos = new FileOutputStream("bluered.out");
 		Scanner scanner = new Scanner(fis);
@@ -98,17 +97,23 @@ public class RBHack2 {
 			colors[i] = color;
 		}
 		
-		normUseMasks = new int[(1 << edgCount)];
-		Arrays.fill(normUseMasks, -1);
-		normUseMasks[0] = 0;
-		for (int i = 1; i < (1 << edgCount); i++) {
-			normUseMasks[i] = normalizeDfs(i, 1, 0);
+		normMasks = new int[(1 << edgCount)];
+		Arrays.fill(normMasks, -1);
+		for (int i = 0; i < (1 << edgCount); i++) {
+			normMasks[i] = i & normalizeDfs(i, 1, 0);
+
+			int cmask = normMasks[i];
+			if (maskResults[cmask] == null) {
+				maskResults[cmask] = eval(cmask);
+			}
+			maskResults[i] = maskResults[cmask];
 		}
-		
+
 		int initMask = (1 << edgCount) - 1;		
-		Num res = eval(initMask);
+		Num res = maskResults[initMask];//eval(initMask);
 		res.shorten();
 		fos.write((res.toString() + "\n").getBytes());
+		
 	}
 
 	static Num eval(int mask) {
@@ -127,7 +132,7 @@ public class RBHack2 {
 				int nmask = cbit ^ mask;
 				//System.out.println("  eval.cbit " + Integer.toString(cbit, 2));
 				//System.out.println("  eval.nmask " + Integer.toString(nmask, 2));
-				int useMask = normUseMasks[nmask];//normalizeDfs(nmask, 1, 0);
+				int useMask = normMasks[nmask];//normalizeDfs(nmask, 1, 0);
 				//System.out.println("  eval.useMask " + Integer.toString(useMask, 2));
 
 				nmask &= useMask;
@@ -189,7 +194,7 @@ public class RBHack2 {
 			//System.out.println("while_1");
 
 			Num nborder = lborder.add(rborder); 
-			nborder.den = nborder.den * 2; //(l+r)/2
+			nborder.den = nborder.den.multiply(two); //(l+r)/2
 			
 			if (nborder.compare(maxB) > 0 && nborder.compare(minR) < 0)
 				return nborder;
@@ -205,9 +210,10 @@ public class RBHack2 {
 	}
 	
 	private static int normalizeDfs(int mask, int cVertex, int edgUsedMask) {
-		if (normUseMasks[mask] >= 0)
-			return normUseMasks[mask];
+		if (normMasks[mask] >= 0)
+			return normMasks[mask];
 		
+		int currUseMask = edgUsedMask;
 		for (int dest : graph[cVertex]) {
 			int currIndex = edgIndex[cVertex][dest];
 			int cbit = (1 << currIndex);
@@ -218,17 +224,17 @@ public class RBHack2 {
 			//System.out.println("    norm.mask " + Integer.toString(mask, 2));
 			//System.out.println("    norm.cbit " + Integer.toString(cbit, 2));
 
-			if ((cbit | mask) != mask) //no edge
+			if ((cbit & mask) == 0) //no edge
 				continue;
 			
-			int nUMask = cbit | edgUsedMask;
-			if (nUMask == edgUsedMask) //used
+			int nUMask = cbit | currUseMask;
+			if (nUMask == currUseMask) //used
 				continue;
 			
-			edgUsedMask = normalizeDfs(mask, dest, nUMask);
+			currUseMask = normalizeDfs(mask, dest, nUMask);
 		}
 		//System.out.println("    norm.usemask " + Integer.toString(edgUsedMask, 2));
-		return edgUsedMask;
+		return currUseMask;
 	}
 }
 
