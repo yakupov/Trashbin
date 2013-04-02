@@ -5,33 +5,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Scanner;
-
 
 public class RBHack2 {
 	static final BigInteger two = BigInteger.ONE.add(BigInteger.ONE);
-	
-	static class Edge {
-		public Edge(boolean color, int dest) {
-			super();
-			this.color = color; //false == blue
-			this.dest = dest;
-		}
-		public Edge(boolean color, int src, int dest) {
-			super();
-			this.color = color;
-			this.src = src;
-			this.dest = dest;
-		}
-		public boolean color;
-		public int src;
-		public int dest;
-		
-		public String toString() {
-			return src + " -" + (color ? "R" : "B") + "-> " + dest;
-		}
-	}
 	
 	static class Num {
 		BigInteger num;
@@ -60,7 +37,7 @@ public class RBHack2 {
 		public int compare(Num arg) {
 			//a/b ? c/d      |*bd
 			//ad ? bc
-			System.out.println(this + " ? " + arg);
+			//System.out.println(this + " ? " + arg);
 			return num.multiply(arg.den).compareTo(den.multiply(arg.num));
 		}
 		
@@ -68,12 +45,11 @@ public class RBHack2 {
 			Num res = new Num(num.multiply(arg.den), den.multiply(arg.den));
 			res.num = res.num.add(arg.num.multiply(den));
 			
-			res.shorten();
+			//res.shorten();
 			return res;
 		}
 		
 		public void shorten() {
-			//System.out.print("s" + two);
 			while (!(num.compareTo(BigInteger.ZERO) == 0) &&
 					num.divideAndRemainder(two)[1].equals(BigInteger.ZERO) && 
 					den.divideAndRemainder(two)[1].equals(BigInteger.ZERO)) {
@@ -85,10 +61,10 @@ public class RBHack2 {
 		}
 	}
 	
-	static ArrayList<Edge>[] graph;
-	static ArrayList<Edge> edgList;
-	static int[][] posInEdgList;
-	//static boolean[] visited;
+	static ArrayList<Integer>[] graph;
+	static int edgCount;
+	static boolean[] colors;
+	static int[][] edgIndex;
 	static Num[] maskResults;
 	
 	@SuppressWarnings({ "unchecked", "resource" })
@@ -98,91 +74,79 @@ public class RBHack2 {
 		Scanner scanner = new Scanner(fis);
 		
 		int vertCount = scanner.nextInt();
-		int edgCount = scanner.nextInt();
+		edgCount = scanner.nextInt();
 		
-		posInEdgList = new int[vertCount + 1][vertCount + 1];
-		for (int i = 0; i < posInEdgList.length; ++i) {
-			Arrays.fill(posInEdgList[i], -1);			
-		}
+		edgIndex = new int[vertCount + 1][vertCount + 1];
+		colors = new boolean[edgCount + 1];
 		graph = new ArrayList[vertCount + 1];
 		for (int i = 0; i <= vertCount; ++i) {
-			graph[i] = new ArrayList<Edge>();
+			graph[i] = new ArrayList<Integer>();
 		}
-		//visited = new boolean[vertCount + 1];
 		maskResults = new Num[(int) Math.pow(2, edgCount + 1)];
-		edgList = new ArrayList<Edge>();
 		
 		for (int i = 0; i < edgCount; ++i) {
 			int from = scanner.nextInt();
 			int to = scanner.nextInt();
 			boolean color = scanner.nextInt() == 1; //true == red
-			graph[from].add(new Edge(color, from, to));
-			//graph[to].add(new Edge(color, to, from)); //TODO: check if we need this symmetry
-			
-			posInEdgList[from][to] = edgList.size();
-			edgList.add(new Edge(color, from, to));
-			//posInEdgList[to][from] = edgList.size();
-			//edgList.add(new Edge(color, to, from));
+			graph[from].add(to);			
+			edgIndex[from][to] = i;
+			colors[i] = color;
 		}
 		
 		int initMask = 0;
 		for (int i = 0; i < edgCount; ++i) {
 			initMask |= (1 << i);
 		}
-		fos.write((eval(initMask).toString() + "\n").getBytes());
+		
+		Num res = eval(initMask);
+		res.shorten();
+		fos.write((res.toString() + "\n").getBytes());
 	}
 
 	static Num eval(int mask) {
-		System.out.println("eval.mask " + Integer.toString(mask, 2));		
+		//System.out.println("eval.mask " + Integer.toString(mask, 2));		
 		if (mask == 0)
 			return Num.ZERO();
 
-		ArrayList<Num> redResults = new ArrayList<Num>();
-		ArrayList<Num> blueResults = new ArrayList<Num>();
+		//LinkedList<Num> redResults = new LinkedList<Num>();
+		Num minR = null;
+		//LinkedList<Num> blueResults = new LinkedList<Num>();
+		Num maxB = null;
 		
-		for (int i = 0; i < edgList.size(); ++i) {
+		for (int i = 0; i < edgCount; ++i) {
 			int cbit = (1 << i);
 			if ((cbit | mask) == mask) {
 				int nmask = cbit ^ mask;
-				System.out.println("  eval.cbit " + Integer.toString(cbit, 2));
-				System.out.println("  eval.nmask " + Integer.toString(nmask, 2));
+				//System.out.println("  eval.cbit " + Integer.toString(cbit, 2));
+				//System.out.println("  eval.nmask " + Integer.toString(nmask, 2));
 				int useMask = normalizeDfs(nmask, 1, 0);
-				System.out.println("  eval.useMask " + Integer.toString(useMask, 2));
+				//System.out.println("  eval.useMask " + Integer.toString(useMask, 2));
 
 				nmask &= useMask;
 				
 				Num cres = null;
 				if (maskResults[nmask] != null) {
 					cres = maskResults[nmask];
-					System.out.println("  eval.evres from arr: " + cres);
+					//System.out.println("  eval.evres from arr: " + cres);
 				} else {
 					cres = eval(nmask);
-					System.out.println("  eval.evres from eval: " + cres);
+					//System.out.println("  eval.evres from eval: " + cres);
 					maskResults[nmask] = cres;
 				}
 				
-				if (edgList.get(i).color)
-					redResults.add(cres);
-				else
-					blueResults.add(cres);
+				if (colors[i]) {
+					//redResults.add(cres);
+					if (minR == null || cres.compare(minR) < 0)
+						minR = cres;
+				} else {
+					//blueResults.add(cres);
+					if (maxB == null || cres.compare(maxB) > 0)
+						maxB = cres;
+				}
 			}
 		}
 		
-		Num maxB = blueResults.size() > 0 ? blueResults.get(0) : null;
-		for (Num n : blueResults) {
-			if (n.compare(maxB) > 0)
-				maxB = n;
-			System.out.println("  B "+n);
-		}
-		
-		Num minR = redResults.size() > 0 ? redResults.get(0) : null;
-		for (Num n : redResults) {
-			if (n.compare(minR) < 0)
-				minR = n;
-			System.out.println("  R "+n);
-		}
-		
-		System.out.println("  eval.currWorkingMask " + Integer.toString(mask, 2));
+		//System.out.println("  eval.currWorkingMask " + Integer.toString(mask, 2));
 		
 		if (minR == null) {
 			return maxB.add(Num.ONE());
@@ -207,18 +171,14 @@ public class RBHack2 {
 			}
 		}
 		
-		System.out.println("maxB "+maxB);
-		System.out.println("minR "+minR);
-		System.out.println("lborder "+lborder);
-		System.out.println("rborder "+rborder);
-		System.out.println("mask " + Integer.toString(mask, 2));
+		//System.out.println("maxB "+maxB);
+		//System.out.println("minR "+minR);
+		//System.out.println("lborder "+lborder);
+		//System.out.println("rborder "+rborder);
+		//System.out.println("mask " + Integer.toString(mask, 2));
 
-		return f(lborder, rborder, maxB, minR);
-	}
-	
-	private static Num f(Num lborder, Num rborder, final Num maxB, final Num minR) {
 		while (true) {
-			System.out.println("while_1");
+			//System.out.println("while_1");
 
 			Num nborder = lborder.add(rborder); 
 			nborder.den = nborder.den.multiply(two); //(l+r)/2
@@ -235,17 +195,20 @@ public class RBHack2 {
 			}
 		}
 	}
-
+	
 	private static int normalizeDfs(int mask, int cVertex, int edgUsedMask) {
-		for (Edge e : graph[cVertex]) {
-			int edgListIndex = posInEdgList[cVertex][e.dest];
-			int cbit = (1 << edgListIndex);
+		if (edgUsedMask == mask)
+			return edgUsedMask;
+		
+		for (int dest : graph[cVertex]) {
+			int currIndex = edgIndex[cVertex][dest];
+			int cbit = (1 << currIndex);
 
-			//System.out.println("norm.eCount " + graph[cVertex].size());
-			System.out.println("    norm.e " + e);
-			//System.out.println("norm.index " + edgListIndex);
-			//System.out.println("norm.mask " + Integer.toString(mask, 2));
-			System.out.println("    norm.cbit " + Integer.toString(cbit, 2));
+			////System.out.println("norm.eCount " + graph[cVertex].size());
+			//System.out.println("    norm.src dest " + cVertex + " " + dest);
+			////System.out.println("norm.index " + edgListIndex);
+			////System.out.println("norm.mask " + Integer.toString(mask, 2));
+			//System.out.println("    norm.cbit " + Integer.toString(cbit, 2));
 
 			if ((cbit | mask) != mask) //no edge
 				continue;
@@ -254,8 +217,9 @@ public class RBHack2 {
 			if (nUMask == edgUsedMask) //used
 				continue;
 			
-			edgUsedMask = normalizeDfs(mask, e.dest, nUMask);
+			edgUsedMask = normalizeDfs(mask, dest, nUMask);
 		}
 		return edgUsedMask;
 	}
 }
+
